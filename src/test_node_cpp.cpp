@@ -87,6 +87,7 @@ private:
 
     void pwm_function_a()
     {
+        RCLCPP_INFO(this->get_logger(),"IN PWM FUNCTION A");
         pwm_counter_a_++;
         if (pwm_counter_a_ >= 100) {
             pwm_counter_a_ = 0;
@@ -96,6 +97,7 @@ private:
 
     void pwm_function_b()
     {
+        RCLCPP_INFO(this->get_logger(),"IN PWM FUNCTION B");
         pwm_counter_b_++;
         if (pwm_counter_b_ >= 100) {
             pwm_counter_b_ = 0;
@@ -115,6 +117,7 @@ private:
 
     void motor_A(int status, int speed)
     {
+        RCLCPP_INFO(this->get_logger(),"IN MOTOR A FUNCTION");
         if (status == 0) {
             safe_gpio_write(2, 0);
             safe_gpio_write(3, 0);
@@ -132,6 +135,7 @@ private:
 
     void motor_B(int status, int speed)
     {
+        RCLCPP_INFO(this->get_logger(),"IN MOTOR B FUNCTION");
         if (status == 0) {
             safe_gpio_write(4, 0);
             safe_gpio_write(5, 0);
@@ -162,15 +166,16 @@ private:
     }
 
     void motor_function()
-    {
+    {   
+        RCLCPP_INFO(this->get_logger(),"IN MOTOR FUNCTION");
         auto current_time = this->now();
         if ((current_time - state_time_).seconds() > 3.0) {
-            if (state_ == "forward") {
+            if (state_ == "backward") {
                 motorStop();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1500));
                 move(60, "backward");
                 state_ = "backward";
-            } else if (state_ == "backward") {
+            } else if (state_ == "forward") {
                 motorStop();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1500));
                 move(60, "forward");
