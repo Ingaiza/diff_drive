@@ -11,20 +11,16 @@ find_package(rclcpp REQUIRED)
 find_package(example_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
-# Handle gpiod
+# Find gpiod library
 find_path(GPIOD_INCLUDE_DIR gpiod.hpp
     PATHS /usr/include /usr/local/include)
 find_library(GPIOD_LIBRARY gpiod
-    PATHS /usr/lib /usr/local/lib)
+    PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu)
+find_library(GPIODCXX_LIBRARY gpiodcxx
+    PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu)
 
-if(GPIOD_INCLUDE_DIR AND GPIOD_LIBRARY)
-    set(GPIOD_FOUND TRUE)
-else()
-    set(GPIOD_FOUND FALSE)
-endif()
-
-if(NOT GPIOD_FOUND)
-    message(FATAL_ERROR "Could not find gpiod library")
+if(NOT GPIOD_INCLUDE_DIR OR NOT GPIOD_LIBRARY OR NOT GPIODCXX_LIBRARY)
+    message(FATAL_ERROR "Could not find gpiod library. Please install libgpiod-dev.")
 endif()
 
 find_library(PIGPIOD_LIBRARY pigpiod_if2)
@@ -38,15 +34,17 @@ if(BUILD_TESTING)
 endif()
 
 add_executable(diff_motion src/diff_motion.cpp)
-ament_target_dependencies(diff_motion 
-  rclcpp 
-  example_interfaces 
-  geometry_msgs
-)
-target_link_libraries(diff_motion ${GPIOD_LIBRARY} ${PIGPIOD_LIBRARY})
+ament_target_dependencies(diff_motion rclcpp example_interfaces geometry_msgs)
+target_link_libraries(diff_motion ${PIGPIOD_LIBRARY})
+
+# Add MotionTest node
+add_executable(motion_test src/test_node_cpp.cpp)
+ament_target_dependencies(motion_test rclcpp)
+target_link_libraries(motion_test ${GPIOD_LIBRARY} ${GPIODCXX_LIBRARY})
 
 install(TARGETS
   diff_motion
+  motion_test
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()

@@ -192,12 +192,12 @@ private:
     std::unique_ptr<gpiod::chip> chip_;
     gpiod::line_bulk lines_;
 
-    int Motor_A_EN;
-    int Motor_B_EN;
-    int Motor_A_Pin1;
-    int Motor_A_Pin2;
-    int Motor_B_Pin1;
-    int Motor_B_Pin2;
+    unsigned int Motor_A_EN;
+    unsigned int Motor_B_EN;
+    unsigned int Motor_A_Pin1;
+    unsigned int Motor_A_Pin2;
+    unsigned int Motor_B_Pin1;
+    unsigned int Motor_B_Pin2;
 };
 
 int main(int argc, char * argv[])
