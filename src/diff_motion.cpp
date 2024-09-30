@@ -3,7 +3,6 @@
 #include "example_interfaces/msg/float64.hpp"
 #include <cmath>
 #include <queue>
-#include <pigpiod_if2.h>
 
 #ifndef M_PI
 #define M_PI = 3.14159265358979323846;
@@ -53,47 +52,7 @@ public:
         
         RCLCPP_INFO(this->get_logger(), "Motion Subscription is Active");
 
-        init = pigpio_start(NULL,NULL);
-
-        if(init < 0)
-        {
-            RCLCPP_ERROR(this->get_logger(),"Failed to Initialize ginito");
-            return;
-        }
-        else
-        {
-            RCLCPP_INFO(this->get_logger(),"GinitO Initialized");
-        }
-
-
-        //I2C connection to the PCA9685
-        pca9685_addr = 0x40;  // Default I2C address of PCA9685
-        i2c_handle = i2c_open(init, 1, pca9685_addr, 0);
-        if (i2c_handle < 0) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to open I2C device");
-            return;
-        }
-
-        // 3. Put PCA9685 into sleep mode to set the PWM frequency
-        i2c_write_byte_data(init, i2c_handle, 0x00, 0x10);
-
-        // 4. Set the PWM frequency to 10kHz 
-        set_PWM_frequency(10000);
-
-        // 5. Wake the PCA9685 back up
-        i2c_write_byte_data(init, i2c_handle, 0x00, 0x00);
-
-        
-    }
-
-    ~motionnode()
-    {
-        if(init>=0)
-        { i2c_close(init,i2c_handle);
-          pigpio_stop(init);
-        }
-    }
-
+    }   
 private:
 
     void motion_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
@@ -172,19 +131,13 @@ private:
 
     void right_duty_subcallback(const example_interfaces::msg::Float64::SharedPtr msg)
     {
-        //static_cast<void>(msg);
-        RCLCPP_INFO(this->get_logger(),"RIGHT DUTY_CYCLE CALLBACK IS ACTIVE");
-        set_PWM(6,msg->data); //PWM6 for Motor A 
+        static_cast<void>(msg);
         
-
     }
 
     void left_duty_subcallback(const example_interfaces::msg::Float64::SharedPtr msg)
     {
-        //static_cast<void>(msg);
-        RCLCPP_INFO(this->get_logger(),"LEFT DUTY_CYCLE CALLBACK IS ACTIVE");
-        set_PWM(5,msg->data); //PWM5 for Motor B
-        
+        static_cast<void>(msg);    
     
     }
 
@@ -223,29 +176,6 @@ private:
         return duty;
     }
 
-    void set_PWM_frequency(float freq)
-    {
-        float prescaleval = 25000000.0;    // 25MHz
-        prescaleval /= 4096.0;             // 12-bit
-        prescaleval /= freq;
-        prescaleval -= 1.0;
-        uint8_t prescale = static_cast<uint8_t>(prescaleval + 0.5);
-        
-        i2c_write_byte_data(init, i2c_handle, 0xFE, prescale);
-    }
-
-    void set_PWM(int channel, int duty)
-    {
-        if (duty < 0) duty = 0;
-        if (duty > 1) duty = 1;
-        int pwm = static_cast<int>(4095 * duty);
-
-        i2c_write_byte_data(init, i2c_handle, 0x06 + 4 * channel, 0);
-        i2c_write_byte_data(init, i2c_handle, 0x07 + 4 * channel, 0);
-        i2c_write_byte_data(init, i2c_handle, 0x08 + 4 * channel, pwm & 0xFF);
-        i2c_write_byte_data(init, i2c_handle, 0x09 + 4 * channel, pwm >> 8);
-    }
-
     rclcpp::Publisher<example_interfaces::msg::Float64>::SharedPtr right_duty_publisher_;
     rclcpp::Publisher<example_interfaces::msg::Float64>::SharedPtr left_duty_publisher_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr motion_subscription_;
@@ -264,10 +194,7 @@ private:
     double left_wheel_angular_vel; // left wheel angular vel calculated from cmd_vel command
     double dcmotor_angular_vel = 80 * (2*M_PI)/60; /*This is the rated angular velocity for the GA12-N20 
     dc motor used in adeept rasp tank when loaded at 6 Volts, the unloaded value is 100RPM */
-    double peak_voltage = 8; //Approximate Peak Voltage in the rasptank 
-    int init;
-    uint8_t pca9685_addr;
-    int i2c_handle;
+    double peak_voltage = 8; //Approximate Peak Voltage in the rasptank    
 
 };
 

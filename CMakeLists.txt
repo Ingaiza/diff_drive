@@ -5,7 +5,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-# find dependencies
+# Find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(example_interfaces REQUIRED)
@@ -13,12 +13,21 @@ find_package(geometry_msgs REQUIRED)
 
 # Find lgpio library
 find_path(LGPIO_INCLUDE_DIR lgpio.h
-  PATHS /usr/include /usr/local/include /usr/include/lgpio ${CMAKE_SOURCE_DIR}/external/lgpio
+  PATHS 
+    /usr/include 
+    /usr/local/include 
+    /usr/include/lgpio 
+    ${CMAKE_SOURCE_DIR}/external/lgpio
   PATH_SUFFIXES lgpio
 )
+
 find_library(LGPIO_LIBRARY
   NAMES lgpio
-  PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu ${CMAKE_SOURCE_DIR}/external/lgpio
+  PATHS 
+    /usr/lib 
+    /usr/local/lib 
+    /usr/lib/x86_64-linux-gnu 
+    ${CMAKE_SOURCE_DIR}/external/lgpio
 )
 
 if(NOT LGPIO_INCLUDE_DIR OR NOT LGPIO_LIBRARY)

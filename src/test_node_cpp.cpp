@@ -3,6 +3,7 @@
 #include <chrono>
 #include <thread>
 #include <vector>
+#include <algorithm>
 
 // Motor pin definitions
 const int Motor_A_EN = 4;
@@ -44,14 +45,17 @@ public:
     {
         if (h >= 0) {
             motorStop();
-            lgpio_stop(h);
+            lgGpiochipClose(h);
         }
     }
 
 private:
     void initialize_gpio()
     {
-        h = lgpio_start();
+        h = lgGpiochipOpen(0);  // Try opening chip 0
+        if (h < 0) {
+            h = lgGpiochipOpen(1);  // If chip 0 fails, try chip 1
+        }
         if (h < 0) {
             RCLCPP_ERROR(this->get_logger(), "Failed to initialize lgpio");
         } else {
@@ -64,7 +68,7 @@ private:
         std::vector<int> pins = {Motor_A_EN, Motor_B_EN, Motor_A_Pin1, Motor_A_Pin2, Motor_B_Pin1, Motor_B_Pin2};
         std::vector<int> available_pins;
         for (int pin : pins) {
-            if (lgpio_claim_output(h, 0, pin, 0) == 0) {
+            if (lgGpioClaimOutput(h, 0, pin, LG_LOW) == LG_OKAY) {
                 available_pins.push_back(pin);
             } else {
                 RCLCPP_WARN(this->get_logger(), "Failed to set up pin %d", pin);
@@ -76,7 +80,7 @@ private:
     void safe_gpio_write(int pin, int value)
     {
         if (std::find(available_pins.begin(), available_pins.end(), pin) != available_pins.end()) {
-            if (lgpio_gpio_write(h, pin, value) != 0) {
+            if (lgGpioWrite(h, pin, value) != LG_OKAY) {
                 RCLCPP_WARN(this->get_logger(), "Failed to write to pin %d", pin);
             }
         }
