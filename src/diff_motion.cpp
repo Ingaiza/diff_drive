@@ -3,10 +3,20 @@
 #include "example_interfaces/msg/float64.hpp"
 #include <cmath>
 #include <queue>
+#include <lgpio.h>
+
 
 #ifndef M_PI
 #define M_PI = 3.14159265358979323846;
 #endif
+
+// Motor pin definitions
+const int Motor_A_EN = 4;
+const int Motor_B_EN = 17;
+const int Motor_A_Pin1 = 14;
+const int Motor_A_Pin2 = 15;
+const int Motor_B_Pin1 = 27;
+const int Motor_B_Pin2 = 18;
 
 class motionnode : public rclcpp::Node 
 {
@@ -23,6 +33,18 @@ public:
         right_duty_.callback_group = rightduty_callbackgroup_;
         left_duty_.callback_group = leftduty_callbackgroup_;
 
+        initialize_gpio();
+        if (h < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to initialize GPIO. Cannot proceed.");
+            return;
+        }
+
+        available_pins = setup();
+        if (available_pins.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "No GPIO pins available. Cannot proceed.");
+            return;
+        }
+
 
         motion_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
             "cmd_vel",
@@ -34,6 +56,20 @@ public:
             std::chrono::milliseconds(1),
             std::bind(&motionnode::twist_to_vel_callback,this),
             twist2vel_callbackgroup_);
+
+        pwm_timer_a_ = this->create_wall_timer(
+            std::chrono::milliseconds(10),
+            std::bind(&motionnode::pwm_a_callback,this)
+        );
+
+        pwm_timer_b_ = this->create_wall_timer(
+            std::chrono::milliseconds(10),
+            std::bind(&motionnode::pwm_b_callback,this)
+        );
+        motor_timer_ = this->create_wall_timer(
+            std::chrono::milliseconds(100),
+            std::bind(&motionnode::motor_callback,this)
+        );
 
         right_duty_subscription_ = this->create_subscription<example_interfaces::msg::Float64>(
             "right_duty",
@@ -52,7 +88,19 @@ public:
         
         RCLCPP_INFO(this->get_logger(), "Motion Subscription is Active");
 
-    }   
+        pwm_counter_a = 0;
+        pwm_counter_b = 0;
+
+    }
+
+    ~motionnode()
+    {
+        if (h >= 0) {
+            motorStop();
+            lgGpiochipClose(h);
+        }
+    }
+
 private:
 
     void motion_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
@@ -131,13 +179,25 @@ private:
 
     void right_duty_subcallback(const example_interfaces::msg::Float64::SharedPtr msg)
     {
-        static_cast<void>(msg);
+        //static_cast<void>(msg);
+        {
+            std::lock_guard<std::mutex> lock(right_duty_queue_mutex_);
+            right_duty_queue_.push(msg);
+            //RCLCPP_WARN(this->get_logger(),"PUSHED RIGHT DUTY MSG TO QUEUE");
+        
+        }
         
     }
 
     void left_duty_subcallback(const example_interfaces::msg::Float64::SharedPtr msg)
     {
-        static_cast<void>(msg);    
+        //static_cast<void>(msg); 
+        {
+            std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);
+            left_duty_queue_.push(msg);
+            //RCLCPP_WARN(this->get_logger(),"PUSHED LEFT DUTY MSG TO QUEUE");
+        
+        }   
     
     }
 
@@ -176,25 +236,162 @@ private:
         return duty;
     }
 
+    void initialize_gpio()
+    {
+        h = lgGpiochipOpen(0);  // Try opening chip 0
+        if (h < 0) {
+            h = lgGpiochipOpen(1);  // If chip 0 fails, try chip 1
+        }
+        if (h < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to initialize lgpio");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Successfully initialized lgpio");
+        }
+    }
+
+
+    std::vector<int> setup()
+    {
+        std::vector<int> pins = {Motor_A_EN, Motor_B_EN, Motor_A_Pin1, Motor_A_Pin2, Motor_B_Pin1, Motor_B_Pin2};
+        std::vector<int> available_pins;
+        for (int pin : pins) {
+            if (lgGpioClaimOutput(h, 0, pin, LG_LOW) == LG_OKAY) {
+                available_pins.push_back(pin);
+            } else {
+                RCLCPP_WARN(this->get_logger(), "Failed to set up pin %d", pin);
+            }
+        }
+        return available_pins;
+    }
+
+    void safe_gpio_write(int pin, int value)
+    {
+        if (std::find(available_pins.begin(), available_pins.end(), pin) != available_pins.end()) {
+            if (lgGpioWrite(h, pin, value) != LG_OKAY) {
+                RCLCPP_WARN(this->get_logger(), "Failed to write to pin %d", pin);
+            }
+        }
+    }
+
+    void motorStop()
+    {
+        safe_gpio_write(Motor_A_Pin1, 0);
+        safe_gpio_write(Motor_A_Pin2, 0);
+        safe_gpio_write(Motor_B_Pin1, 0);
+        safe_gpio_write(Motor_B_Pin2, 0);
+        duty_cycle_a = 0;
+        duty_cycle_b = 0;
+    }
+
+    void pwm_a_callback()
+    {
+        if(!right_duty_queue_.empty())
+        {   
+            example_interfaces::msg::Float64::SharedPtr duty;
+            {
+                std::lock_guard<std::mutex> lock(right_duty_queue_mutex_);
+                duty = right_duty_queue_.front();
+                right_duty_queue_.pop();
+
+            }
+            duty_cycle_a = (duty->data) * 100;
+            pwm_counter_a++;
+            if (pwm_counter_a >= 100) 
+            {
+                pwm_counter_a = 0;
+            }
+            safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);
+        }
+        else
+        {
+            safe_gpio_write(Motor_A_EN, 0); //disable pwm
+        }
+    }
+
+    void pwm_b_callback()
+    {
+        if(!left_duty_queue_.empty())
+        {
+            example_interfaces::msg::Float64::SharedPtr duty;
+            {
+                std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);
+                if (!left_duty_queue_.empty())
+                {
+                    duty = left_duty_queue_.front();
+                    left_duty_queue_.pop();
+                }
+            }
+            duty_cycle_b = (duty->data) * 100;
+            pwm_counter_b++;
+            if (pwm_counter_b >= 100) 
+            {
+                pwm_counter_b = 0;
+            }
+            safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);   
+        }
+        else
+        {
+            safe_gpio_write(Motor_B_EN, 0); //disable pwm   
+        }
+    }
+
+    void motor_A()
+    {
+        safe_gpio_write(Motor_A_Pin1, 1);
+        safe_gpio_write(Motor_A_Pin2, 0);
+    }
+
+    void motor_B()
+    {
+        safe_gpio_write(Motor_B_Pin1, 1);
+        safe_gpio_write(Motor_B_Pin2, 0);
+    }
+
+    void motor_callback()
+    {
+        if(!(right_duty_queue_.empty() &&  left_duty_queue_.empty()))
+        {
+            motor_A();
+            motor_B();
+        }
+        else
+        {
+            motorStop();
+        }
+    }
+
     rclcpp::Publisher<example_interfaces::msg::Float64>::SharedPtr right_duty_publisher_;
     rclcpp::Publisher<example_interfaces::msg::Float64>::SharedPtr left_duty_publisher_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr motion_subscription_;
     rclcpp::Subscription<example_interfaces::msg::Float64>::SharedPtr right_duty_subscription_;
     rclcpp::Subscription<example_interfaces::msg::Float64>::SharedPtr left_duty_subscription_;    
     rclcpp::TimerBase::SharedPtr twist_to_vel_;
+    rclcpp::TimerBase::SharedPtr pwm_timer_a_;
+    rclcpp::TimerBase::SharedPtr pwm_timer_b_;
+    rclcpp::TimerBase::SharedPtr motor_timer_;
     rclcpp::CallbackGroup::SharedPtr motionsub_callbackgroup_;
     rclcpp::CallbackGroup::SharedPtr twist2vel_callbackgroup_;
     rclcpp::CallbackGroup::SharedPtr rightduty_callbackgroup_;
     rclcpp::CallbackGroup::SharedPtr leftduty_callbackgroup_;
     std::queue<geometry_msgs::msg::Twist::SharedPtr> motion_queue_;
+    std::queue<example_interfaces::msg::Float64::SharedPtr> right_duty_queue_;
+    std::queue<example_interfaces::msg::Float64::SharedPtr> left_duty_queue_;
     std::mutex motionqueue_mutex_;
+    std::mutex right_duty_queue_mutex_;
+    std::mutex left_duty_queue_mutex_;
     double wheel_radius = 0.0225; // radius of the wheels
     double wheel_offset = 0.105; // distance between the center of the left and right wheel
     double right_wheel_angular_vel; // right wheel angular vel calculated from cmd_vel command
     double left_wheel_angular_vel; // left wheel angular vel calculated from cmd_vel command
     double dcmotor_angular_vel = 80 * (2*M_PI)/60; /*This is the rated angular velocity for the GA12-N20 
     dc motor used in adeept rasp tank when loaded at 6 Volts, the unloaded value is 100RPM */
-    double peak_voltage = 8; //Approximate Peak Voltage in the rasptank    
+    double peak_voltage = 8; //Approximate Peak Voltage in the rasptank 
+    int h; //gpio handle
+    std::vector<int> available_pins;
+    int duty_cycle_a;
+    int duty_cycle_b;
+    int pwm_counter_a;
+    int pwm_counter_b;   
 
 };
 
