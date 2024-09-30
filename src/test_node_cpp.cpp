@@ -1,153 +1,146 @@
 #include <rclcpp/rclcpp.hpp>
+#include <lgpio.h>
 #include <chrono>
-#include <functional>
-#include <memory>
-#include <string>
-#include <gpiod.hpp>
 #include <thread>
+#include <vector>
 
-using namespace std::chrono_literals;
+// Motor pin definitions
+const int Motor_A_EN = 4;
+const int Motor_B_EN = 17;
+const int Motor_A_Pin1 = 14;
+const int Motor_A_Pin2 = 15;
+const int Motor_B_Pin1 = 27;
+const int Motor_B_Pin2 = 18;
 
 class MotionTest : public rclcpp::Node
 {
 public:
-    MotionTest()
-    : Node("motion_test"), state_("forward")
+    MotionTest() : Node("motion_test"), h(-1), state("forward")
     {
-        // Motor pin definitions
-        Motor_A_EN = 4;
-        Motor_B_EN = 17;
-        Motor_A_Pin1 = 14;
-        Motor_A_Pin2 = 15;
-        Motor_B_Pin1 = 27;
-        Motor_B_Pin2 = 18;
-
-        // Initialize GPIO
         initialize_gpio();
+        if (h < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to initialize GPIO. Cannot proceed.");
+            return;
+        }
 
-        // Create timers
-        timer_ = this->create_wall_timer(100ms, std::bind(&MotionTest::motor_function, this));
-        pwm_timer_a_ = this->create_wall_timer(10ms, std::bind(&MotionTest::pwm_function_a, this));
-        pwm_timer_b_ = this->create_wall_timer(10ms, std::bind(&MotionTest::pwm_function_b, this));
+        available_pins = setup();
+        if (available_pins.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "No GPIO pins available. Cannot proceed.");
+            return;
+        }
 
-        state_time_ = this->now();
-        duty_cycle_a_ = 0;
-        duty_cycle_b_ = 0;
-        pwm_counter_a_ = 0;
-        pwm_counter_b_ = 0;
+        timer = this->create_wall_timer(std::chrono::milliseconds(100), std::bind(&MotionTest::motor_function, this));
+        pwm_timer_a = this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&MotionTest::pwm_function_a, this));
+        pwm_timer_b = this->create_wall_timer(std::chrono::milliseconds(10), std::bind(&MotionTest::pwm_function_b, this));
+
+        state_time = this->now();
+        duty_cycle_a = 0;
+        duty_cycle_b = 0;
+        pwm_counter_a = 0;
+        pwm_counter_b = 0;
     }
 
     ~MotionTest()
     {
-        motorStop();
-        if (chip_) {
-            chip_->reset();
+        if (h >= 0) {
+            motorStop();
+            lgpio_stop(h);
         }
     }
 
 private:
     void initialize_gpio()
     {
-        for (int chip_num = 0; chip_num < 2; ++chip_num) {
-            try {
-                chip_ = std::make_unique<gpiod::chip>(std::to_string(chip_num));
-                RCLCPP_INFO(this->get_logger(), "Successfully opened GPIO chip %d", chip_num);
-                break;
-            } catch (const std::exception& e) {
-                RCLCPP_WARN(this->get_logger(), "Failed to open GPIO chip %d: %s", chip_num, e.what());
-            }
-        }
-
-        if (!chip_) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to open any GPIO chip");
-            return;
-        }
-
-        try {
-            lines_ = chip_->get_lines({Motor_A_EN, Motor_B_EN, Motor_A_Pin1, Motor_A_Pin2, Motor_B_Pin1, Motor_B_Pin2});
-            lines_.request({"motion_test", gpiod::line_request::DIRECTION_OUTPUT, 0});
-        } catch (const std::exception& e) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to initialize GPIO lines: %s", e.what());
+        h = lgpio_start();
+        if (h < 0) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to initialize lgpio");
+        } else {
+            RCLCPP_INFO(this->get_logger(), "Successfully initialized lgpio");
         }
     }
 
-    void safe_gpio_write(int pin_index, int value)
+    std::vector<int> setup()
     {
-        if (pin_index < 0 || pin_index >= static_cast<int>(lines_.size())) {
-            RCLCPP_WARN(this->get_logger(), "Invalid pin index: %d", pin_index);
-            return;
+        std::vector<int> pins = {Motor_A_EN, Motor_B_EN, Motor_A_Pin1, Motor_A_Pin2, Motor_B_Pin1, Motor_B_Pin2};
+        std::vector<int> available_pins;
+        for (int pin : pins) {
+            if (lgpio_claim_output(h, 0, pin, 0) == 0) {
+                available_pins.push_back(pin);
+            } else {
+                RCLCPP_WARN(this->get_logger(), "Failed to set up pin %d", pin);
+            }
         }
+        return available_pins;
+    }
 
-        try {
-            lines_[pin_index].set_value(value);
-        } catch (const std::exception& e) {
-            RCLCPP_WARN(this->get_logger(), "Failed to write to pin %d: %s", pin_index, e.what());
+    void safe_gpio_write(int pin, int value)
+    {
+        if (std::find(available_pins.begin(), available_pins.end(), pin) != available_pins.end()) {
+            if (lgpio_gpio_write(h, pin, value) != 0) {
+                RCLCPP_WARN(this->get_logger(), "Failed to write to pin %d", pin);
+            }
         }
     }
 
     void pwm_function_a()
     {
-        RCLCPP_INFO(this->get_logger(),"IN PWM FUNCTION A");
-        pwm_counter_a_++;
-        if (pwm_counter_a_ >= 100) {
-            pwm_counter_a_ = 0;
+        pwm_counter_a++;
+        if (pwm_counter_a >= 100) {
+            pwm_counter_a = 0;
         }
-        safe_gpio_write(0, pwm_counter_a_ < duty_cycle_a_ ? 1 : 0);
+        safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);
     }
 
     void pwm_function_b()
     {
-        RCLCPP_INFO(this->get_logger(),"IN PWM FUNCTION B");
-        pwm_counter_b_++;
-        if (pwm_counter_b_ >= 100) {
-            pwm_counter_b_ = 0;
+        pwm_counter_b++;
+        if (pwm_counter_b >= 100) {
+            pwm_counter_b = 0;
         }
-        safe_gpio_write(1, pwm_counter_b_ < duty_cycle_b_ ? 1 : 0);
+        safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);
     }
 
     void motorStop()
     {
-        safe_gpio_write(2, 0);
-        safe_gpio_write(3, 0);
-        safe_gpio_write(4, 0);
-        safe_gpio_write(5, 0);
-        duty_cycle_a_ = 0;
-        duty_cycle_b_ = 0;
+        safe_gpio_write(Motor_A_Pin1, 0);
+        safe_gpio_write(Motor_A_Pin2, 0);
+        safe_gpio_write(Motor_B_Pin1, 0);
+        safe_gpio_write(Motor_B_Pin2, 0);
+        duty_cycle_a = 0;
+        duty_cycle_b = 0;
     }
 
     void motor_A(int status, int speed)
     {
-        RCLCPP_INFO(this->get_logger(),"IN MOTOR A FUNCTION");
-        if (status == 0) {
-            safe_gpio_write(2, 0);
-            safe_gpio_write(3, 0);
-            duty_cycle_a_ = 0;
-        } else if (status == 1) {
-            safe_gpio_write(2, 1);
-            safe_gpio_write(3, 0);
-            duty_cycle_a_ = speed;
-        } else if (status == -1) {
-            safe_gpio_write(2, 0);
-            safe_gpio_write(3, 1);
-            duty_cycle_a_ = speed;
+        if (status == 0) {  // stop
+            safe_gpio_write(Motor_A_Pin1, 0);
+            safe_gpio_write(Motor_A_Pin2, 0);
+            duty_cycle_a = 0;
+        } else if (status == 1) {  // positive rotation
+            safe_gpio_write(Motor_A_Pin1, 1);
+            safe_gpio_write(Motor_A_Pin2, 0);
+            duty_cycle_a = speed;
+        } else if (status == -1) {  // negative rotation
+            safe_gpio_write(Motor_A_Pin1, 0);
+            safe_gpio_write(Motor_A_Pin2, 1);
+            duty_cycle_a = speed;
         }
     }
 
     void motor_B(int status, int speed)
     {
-        RCLCPP_INFO(this->get_logger(),"IN MOTOR B FUNCTION");
-        if (status == 0) {
-            safe_gpio_write(4, 0);
-            safe_gpio_write(5, 0);
-            duty_cycle_b_ = 0;
-        } else if (status == 1) {
-            safe_gpio_write(4, 1);
-            safe_gpio_write(5, 0);
-            duty_cycle_b_ = speed;
-        } else if (status == -1) {
-            safe_gpio_write(4, 0);
-            safe_gpio_write(5, 1);
-            duty_cycle_b_ = speed;
+        if (status == 0) {  // stop
+            safe_gpio_write(Motor_B_Pin1, 0);
+            safe_gpio_write(Motor_B_Pin2, 0);
+            duty_cycle_b = 0;
+        } else if (status == 1) {  // positive rotation
+            safe_gpio_write(Motor_B_Pin1, 1);
+            safe_gpio_write(Motor_B_Pin2, 0);
+            duty_cycle_b = speed;
+        } else if (status == -1) {  // negative rotation
+            safe_gpio_write(Motor_B_Pin1, 0);
+            safe_gpio_write(Motor_B_Pin2, 1);
+            duty_cycle_b = speed;
         }
     }
 
@@ -166,46 +159,38 @@ private:
     }
 
     void motor_function()
-    {   
-        RCLCPP_INFO(this->get_logger(),"IN MOTOR FUNCTION");
-        auto current_time = this->now();
-        if ((current_time - state_time_).seconds() > 3.0) {
-            if (state_ == "backward") {
+    {
+        rclcpp::Time current_time = this->now();
+        if ((current_time - state_time).seconds() > 3.0) {
+            if (state == "forward") {
                 motorStop();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1500));
                 move(60, "backward");
-                state_ = "backward";
-            } else if (state_ == "forward") {
+                state = "backward";
+            } else if (state == "backward") {
                 motorStop();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1500));
                 move(60, "forward");
-                state_ = "forward";
+                state = "forward";
             }
-            state_time_ = current_time;
+            state_time = current_time;
         }
     }
 
-    rclcpp::TimerBase::SharedPtr timer_;
-    rclcpp::TimerBase::SharedPtr pwm_timer_a_;
-    rclcpp::TimerBase::SharedPtr pwm_timer_b_;
-    rclcpp::Time state_time_;
-    std::string state_;
-    int duty_cycle_a_;
-    int duty_cycle_b_;
-    int pwm_counter_a_;
-    int pwm_counter_b_;
-    std::unique_ptr<gpiod::chip> chip_;
-    gpiod::line_bulk lines_;
-
-    unsigned int Motor_A_EN;
-    unsigned int Motor_B_EN;
-    unsigned int Motor_A_Pin1;
-    unsigned int Motor_A_Pin2;
-    unsigned int Motor_B_Pin1;
-    unsigned int Motor_B_Pin2;
+    int h;
+    std::vector<int> available_pins;
+    rclcpp::TimerBase::SharedPtr timer;
+    rclcpp::TimerBase::SharedPtr pwm_timer_a;
+    rclcpp::TimerBase::SharedPtr pwm_timer_b;
+    rclcpp::Time state_time;
+    std::string state;
+    int duty_cycle_a;
+    int duty_cycle_b;
+    int pwm_counter_a;
+    int pwm_counter_b;
 };
 
-int main(int argc, char * argv[])
+int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
     auto node = std::make_shared<MotionTest>();

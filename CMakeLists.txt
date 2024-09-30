@@ -11,20 +11,24 @@ find_package(rclcpp REQUIRED)
 find_package(example_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
-# Find gpiod library
-find_path(GPIOD_INCLUDE_DIR gpiod.hpp
-    PATHS /usr/include /usr/local/include)
-find_library(GPIOD_LIBRARY gpiod
-    PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu)
-find_library(GPIODCXX_LIBRARY gpiodcxx
-    PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu)
+# Find lgpio library
+find_path(LGPIO_INCLUDE_DIR lgpio.h
+  PATHS /usr/include /usr/local/include /usr/include/lgpio ${CMAKE_SOURCE_DIR}/external/lgpio
+  PATH_SUFFIXES lgpio
+)
+find_library(LGPIO_LIBRARY
+  NAMES lgpio
+  PATHS /usr/lib /usr/local/lib /usr/lib/x86_64-linux-gnu ${CMAKE_SOURCE_DIR}/external/lgpio
+)
 
-if(NOT GPIOD_INCLUDE_DIR OR NOT GPIOD_LIBRARY OR NOT GPIODCXX_LIBRARY)
-    message(FATAL_ERROR "Could not find gpiod library. Please install libgpiod-dev.")
+if(NOT LGPIO_INCLUDE_DIR OR NOT LGPIO_LIBRARY)
+  message(FATAL_ERROR "Could not find lgpio library. Please install lgpio or specify its location.")
+else()
+  message(STATUS "Found lgpio: ${LGPIO_LIBRARY}")
+  message(STATUS "lgpio include dir: ${LGPIO_INCLUDE_DIR}")
 endif()
 
-find_library(PIGPIOD_LIBRARY pigpiod_if2)
-include_directories(${GPIOD_INCLUDE_DIR} /usr/local/include)
+include_directories(${LGPIO_INCLUDE_DIR})
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
@@ -35,12 +39,12 @@ endif()
 
 add_executable(diff_motion src/diff_motion.cpp)
 ament_target_dependencies(diff_motion rclcpp example_interfaces geometry_msgs)
-target_link_libraries(diff_motion ${PIGPIOD_LIBRARY})
+target_link_libraries(diff_motion ${LGPIO_LIBRARY})
 
 # Add MotionTest node
 add_executable(motion_test src/test_node_cpp.cpp)
 ament_target_dependencies(motion_test rclcpp)
-target_link_libraries(motion_test ${GPIOD_LIBRARY} ${GPIODCXX_LIBRARY})
+target_link_libraries(motion_test ${LGPIO_LIBRARY})
 
 install(TARGETS
   diff_motion
