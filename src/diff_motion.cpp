@@ -310,7 +310,7 @@ private:
             {
                 pwm_counter_a = 0;
             }
-            while (right_duty_queue.size() == 1)
+            while (right_duty_queue_.size() == 1)
             {
                 safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);
             }
@@ -347,7 +347,7 @@ private:
             {
                 pwm_counter_b = 0;
             }
-            while (left_duty_queue_size()<= 1)
+            while (left_duty_queue_.size()<= 1)
             {
                 safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);
             }
