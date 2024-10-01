@@ -351,8 +351,8 @@ private:
     {   
         try
         {
-            safe_gpio_write(Motor_A_Pin1, 1);
-            safe_gpio_write(Motor_A_Pin2, 0);
+            safe_gpio_write(Motor_A_Pin1, 0);
+            safe_gpio_write(Motor_A_Pin2, 1);
             RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
         }
         catch(const std::exception& e)
@@ -367,8 +367,8 @@ private:
     {
         try
         {
-            safe_gpio_write(Motor_B_Pin1, 1);
-            safe_gpio_write(Motor_B_Pin2, 0);
+            safe_gpio_write(Motor_B_Pin1, 0);
+            safe_gpio_write(Motor_B_Pin2, 1);
             RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
         }
         catch(const std::exception& e)
