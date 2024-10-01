@@ -353,6 +353,7 @@ private:
         {
             safe_gpio_write(Motor_A_Pin1, 1);
             safe_gpio_write(Motor_A_Pin2, 0);
+            RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
         }
         catch(const std::exception& e)
         {
@@ -368,6 +369,7 @@ private:
         {
             safe_gpio_write(Motor_B_Pin1, 1);
             safe_gpio_write(Motor_B_Pin2, 0);
+            RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
         }
         catch(const std::exception& e)
         {
@@ -378,6 +380,9 @@ private:
 
     void motor_callback()
     {
+        motor_A();
+        motor_B();
+        /*
         if(!(right_duty_queue_.empty() ||  left_duty_queue_.empty()))
         {
             motor_A();
@@ -388,6 +393,7 @@ private:
             RCLCPP_ERROR(this->get_logger(),"MOTOR STOP FUNCTION IS ACTIVE");
             motorStop();
         }
+        */
     }
 
     rclcpp::Publisher<example_interfaces::msg::Float64>::SharedPtr right_duty_publisher_;
