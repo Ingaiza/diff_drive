@@ -33,6 +33,12 @@ public:
         right_duty_.callback_group = rightduty_callbackgroup_;
         left_duty_.callback_group = leftduty_callbackgroup_;
 
+        this->declare_parameter("peak_voltage", 8.0);
+        peak_voltage = this->get_parameter("peak_voltage").as_double();
+
+        this->declare_parameter("angular_vel_gain", 1.0);
+        angular_vel_gain = this->get_parameter("angular_vel_gain").as_double();
+
         initialize_gpio();
         if (h < 0) {
             RCLCPP_ERROR(this->get_logger(), "Failed to initialize GPIO. Cannot proceed.");
@@ -134,8 +140,8 @@ private:
                 //RCLCPP_INFO(this->get_logger(),"Linear Velocity: %f, Angular Velocity: %f",msg->linear.x,msg->angular.z);
 
                 //Find angular velocities for each wheel
-                right_wheel_angular_vel = this->right_diff_calculator(msg);
-                left_wheel_angular_vel = this->left_diff_calculator(msg);
+                right_wheel_angular_vel = this->right_diff_calculator(msg) * angular_vel_gain;
+                left_wheel_angular_vel = this->left_diff_calculator(msg) * angular_vel_gain;
 
                 //RCLCPP_INFO(this->get_logger(),"Right Wheel Angular Velocity: %f, Left Wheel Angular Velocity: %f", right_wheel_angular_vel,left_wheel_angular_vel);
                 
@@ -421,7 +427,8 @@ private:
     double left_wheel_angular_vel; // left wheel angular vel calculated from cmd_vel command
     double dcmotor_angular_vel = 80 * (2*M_PI)/60; /*This is the rated angular velocity for the GA12-N20 
     dc motor used in adeept rasp tank when loaded at 6 Volts, the unloaded value is 100RPM */
-    double peak_voltage = 8; //Approximate Peak Voltage in the rasptank 
+    double peak_voltage; //Approximate Peak Voltage in the rasptank 
+    double angular_vel_gain;
     int h; //gpio handle
     std::vector<int> available_pins;
     int duty_cycle_a;
