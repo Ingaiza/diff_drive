@@ -54,7 +54,7 @@ public:
 
         motion_subscription_ = this->create_subscription<geometry_msgs::msg::Twist>(
             "cmd_vel",
-            1 , 
+            100, 
             std::bind(&motionnode::motion_callback,this,std::placeholders::_1),
             motion_);
 
@@ -79,18 +79,18 @@ public:
 
         right_duty_subscription_ = this->create_subscription<example_interfaces::msg::Float64>(
             "right_duty",
-            1,
+            100,
             std::bind(&motionnode::right_duty_subcallback,this,std::placeholders::_1),
             right_duty_);
 
         left_duty_subscription_ = this->create_subscription<example_interfaces::msg::Float64>(
             "left_duty",
-            1,
+            100,
             std::bind(&motionnode::left_duty_subcallback,this,std::placeholders::_1),
             left_duty_);
 
-        right_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("right_duty", 1);
-        left_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("left_duty", 1);
+        right_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("right_duty", 100);
+        left_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("left_duty", 100);
         
         RCLCPP_INFO(this->get_logger(), "Motion Subscription is Active");
 
@@ -317,7 +317,7 @@ private:
         else
         {
             //safe_gpio_write(Motor_A_EN, 0); //disable pwm
-            RCLCPP_INFO(this->get_logger(),"RIGHT QUEUE IS EMPTY"); 
+            RCLCPP_WARN(this->get_logger(),"RIGHT QUEUE IS EMPTY"); 
         }
     }
 
