@@ -301,10 +301,6 @@ private:
             }
         }
 
-        if(duty_a == NULL)
-        {
-            RCLCPP_WARN(this->get_logger(),"DUTY A IS NULL"); 
-        }
         duty_cycle_a = (duty_a->data) * 100;
         pwm_counter_a++;
         if (pwm_counter_a >= 100) 
@@ -330,10 +326,6 @@ private:
                 left_duty_queue_.pop();
                 
             }
-        }
-        if(duty_b == NULL)
-        {
-            RCLCPP_WARN(this->get_logger(),"DUTY B IS NULL"); 
         }
         duty_cycle_b = (duty_b->data) * 100;
         pwm_counter_b++;
