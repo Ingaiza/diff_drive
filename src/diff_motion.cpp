@@ -292,67 +292,62 @@ private:
     void pwm_a_callback()
     {
         if(!right_duty_queue_.empty())
-        {   
-            example_interfaces::msg::Float64::SharedPtr duty;
+        {
             {
                 std::lock_guard<std::mutex> lock(right_duty_queue_mutex_);
-                duty = right_duty_queue_.front();
+                duty_a = right_duty_queue_.front();
                 right_duty_queue_.pop();
 
             }
-            if(duty == NULL)
-            {
-                RCLCPP_WARN(this->get_logger(),"DUTY A IS NULL"); 
-            }
-            duty_cycle_a = (duty->data) * 100;
-            pwm_counter_a++;
-            if (pwm_counter_a >= 100) 
-            {
-                pwm_counter_a = 0;
-            }
+        }
 
-            safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);          
-            RCLCPP_WARN(this->get_logger(),"MOTOR_A_EN PWM IS ACTIVE");
-        }
-        else
+        if(duty_a == NULL)
         {
-            //safe_gpio_write(Motor_A_EN, 0); //disable pwm
-            RCLCPP_WARN(this->get_logger(),"RIGHT QUEUE IS EMPTY"); 
+            RCLCPP_WARN(this->get_logger(),"DUTY A IS NULL"); 
         }
+        duty_cycle_a = (duty_a->data) * 100;
+        pwm_counter_a++;
+        if (pwm_counter_a >= 100) 
+        {
+            pwm_counter_a = 0;
+        }
+
+        safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);          
+        RCLCPP_WARN(this->get_logger(),"MOTOR_A_EN PWM IS ACTIVE");
+
+        //safe_gpio_write(Motor_A_EN, 0); //disable pwm
+        // RCLCPP_WARN(this->get_logger(),"RIGHT QUEUE IS EMPTY"); 
+        
     }
 
     void pwm_b_callback()
     {
         if(!left_duty_queue_.empty())
         {
-            example_interfaces::msg::Float64::SharedPtr duty;
             {
-                std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);
-                if (!left_duty_queue_.empty())
-                {
-                    duty = left_duty_queue_.front();
-                    left_duty_queue_.pop();
-                }
+                std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);        
+                duty_b = left_duty_queue_.front();
+                left_duty_queue_.pop();
+                
             }
-            if(duty == NULL)
-            {
-                RCLCPP_WARN(this->get_logger(),"DUTY B IS NULL"); 
-            }
-            duty_cycle_b = (duty->data) * 100;
-            pwm_counter_b++;
-            if (pwm_counter_b >= 100) 
-            {
-                pwm_counter_b = 0;
-            }
-           
-            safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);         
-            RCLCPP_WARN(this->get_logger(),"MOTOR_B_EN PWM IS ACTIVE");   
         }
-        else
+        if(duty_b == NULL)
         {
-            //safe_gpio_write(Motor_B_EN, 0); //disable pwm 
-            RCLCPP_WARN(this->get_logger(),"LEFT QUEUE IS EMPTY");  
+            RCLCPP_WARN(this->get_logger(),"DUTY B IS NULL"); 
         }
+        duty_cycle_b = (duty_b->data) * 100;
+        pwm_counter_b++;
+        if (pwm_counter_b >= 100) 
+        {
+            pwm_counter_b = 0;
+        }
+        
+        safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);         
+        RCLCPP_WARN(this->get_logger(),"MOTOR_B_EN PWM IS ACTIVE");   
+    
+        //safe_gpio_write(Motor_B_EN, 0); //disable pwm 
+        // RCLCPP_WARN(this->get_logger(),"LEFT QUEUE IS EMPTY");  
+        
     }
 
     void motor_A()
@@ -423,6 +418,8 @@ private:
     std::mutex motionqueue_mutex_;
     std::mutex right_duty_queue_mutex_;
     std::mutex left_duty_queue_mutex_;
+    example_interfaces::msg::Float64::SharedPtr duty_a;
+    example_interfaces::msg::Float64::SharedPtr duty_b;
     double wheel_radius = 0.0225; // radius of the wheels
     double wheel_offset = 0.105; // distance between the center of the left and right wheel
     double right_wheel_angular_vel; // right wheel angular vel calculated from cmd_vel command
