@@ -309,8 +309,8 @@ private:
         }
         else
         {
-            safe_gpio_write(Motor_A_EN, 0); //disable pwm
-            RCLCPP_WARN(this->get_logger(),"PWM DISABLED"); 
+            //safe_gpio_write(Motor_A_EN, 0); //disable pwm
+            RCLCPP_INFO(this->get_logger(),"RIGHT QUEUE IS EMPTY"); 
         }
     }
 
@@ -342,8 +342,8 @@ private:
         }
         else
         {
-            safe_gpio_write(Motor_B_EN, 0); //disable pwm 
-            RCLCPP_WARN(this->get_logger(),"PWM DISABLED");  
+            //safe_gpio_write(Motor_B_EN, 0); //disable pwm 
+            RCLCPP_WARN(this->get_logger(),"LEFT QUEUE IS EMPTY");  
         }
     }
 
