@@ -58,16 +58,16 @@ public:
             twist2vel_callbackgroup_);
 
         pwm_timer_a_ = this->create_wall_timer(
-            std::chrono::milliseconds(10),
+            std::chrono::milliseconds(1),
             std::bind(&motionnode::pwm_a_callback,this)
         );
 
         pwm_timer_b_ = this->create_wall_timer(
-            std::chrono::milliseconds(10),
+            std::chrono::milliseconds(1),
             std::bind(&motionnode::pwm_b_callback,this)
         );
         motor_timer_ = this->create_wall_timer(
-            std::chrono::milliseconds(100),
+            std::chrono::milliseconds(1),
             std::bind(&motionnode::motor_callback,this)
         );
 
