@@ -131,19 +131,19 @@ private:
 
             if(msg)
             {
-                RCLCPP_INFO(this->get_logger(),"Linear Velocity: %f, Angular Velocity: %f",msg->linear.x,msg->angular.z);
+                //RCLCPP_INFO(this->get_logger(),"Linear Velocity: %f, Angular Velocity: %f",msg->linear.x,msg->angular.z);
 
                 //Find angular velocities for each wheel
                 right_wheel_angular_vel = this->right_diff_calculator(msg);
                 left_wheel_angular_vel = this->left_diff_calculator(msg);
 
-                RCLCPP_INFO(this->get_logger(),"Right Wheel Angular Velocity: %f, Left Wheel Angular Velocity: %f", right_wheel_angular_vel,left_wheel_angular_vel);
+                //RCLCPP_INFO(this->get_logger(),"Right Wheel Angular Velocity: %f, Left Wheel Angular Velocity: %f", right_wheel_angular_vel,left_wheel_angular_vel);
                 
                 //Find voltages for each wheel 
                 auto right_wheel_voltage = this->pwm_voltage_calc(right_wheel_angular_vel);
                 auto left_wheel_voltage = this->pwm_voltage_calc(left_wheel_angular_vel);
                 
-                RCLCPP_INFO(this->get_logger(),"Right Wheel Voltage: %f, Left Wheel Voltage: %f", right_wheel_voltage,left_wheel_voltage);
+                //RCLCPP_INFO(this->get_logger(),"Right Wheel Voltage: %f, Left Wheel Voltage: %f", right_wheel_voltage,left_wheel_voltage);
 
                 /* The max voltage measured in the rasptank was is 8.0V so if the required value exceeds 
                 max value set it to the max value(8.0V) */
@@ -161,7 +161,7 @@ private:
                 example_interfaces::msg::Float64 left_duty_cycle;
                 left_duty_cycle.data = this->duty_cycle(left_wheel_voltage);
 
-                RCLCPP_WARN(this->get_logger(),"RIGHT DUTY CYCLE: %f, LEFT DUTY CYCLE: %f",right_duty_cycle.data,left_duty_cycle.data);
+                //RCLCPP_WARN(this->get_logger(),"RIGHT DUTY CYCLE: %f, LEFT DUTY CYCLE: %f",right_duty_cycle.data,left_duty_cycle.data);
                 
                 right_duty_publisher_->publish(right_duty_cycle);
                 left_duty_publisher_-> publish(left_duty_cycle);
@@ -183,7 +183,7 @@ private:
         {
             std::lock_guard<std::mutex> lock(right_duty_queue_mutex_);
             right_duty_queue_.push(msg);
-            //RCLCPP_WARN(this->get_logger(),"PUSHED RIGHT DUTY MSG TO QUEUE");
+            RCLCPP_WARN(this->get_logger(),"PUSHED RIGHT DUTY MSG TO QUEUE");
         
         }
         
@@ -195,7 +195,7 @@ private:
         {
             std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);
             left_duty_queue_.push(msg);
-            //RCLCPP_WARN(this->get_logger(),"PUSHED LEFT DUTY MSG TO QUEUE");
+            RCLCPP_WARN(this->get_logger(),"PUSHED LEFT DUTY MSG TO QUEUE");
         
         }   
     
@@ -294,6 +294,10 @@ private:
                 right_duty_queue_.pop();
 
             }
+            if(duty == NULL)
+            {
+                RCLCPP_WARN(this->get_logger(),"DUTY A IS NULL"); 
+            }
             duty_cycle_a = (duty->data) * 100;
             pwm_counter_a++;
             if (pwm_counter_a >= 100) 
@@ -301,10 +305,12 @@ private:
                 pwm_counter_a = 0;
             }
             safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);
+            RCLCPP_WARN(this->get_logger(),"MOTOR_A_EN PWM IS ACTIVE");
         }
         else
         {
             safe_gpio_write(Motor_A_EN, 0); //disable pwm
+            RCLCPP_WARN(this->get_logger(),"PWM DISABLED"); 
         }
     }
 
@@ -321,41 +327,65 @@ private:
                     left_duty_queue_.pop();
                 }
             }
+            if(duty == NULL)
+            {
+                RCLCPP_WARN(this->get_logger(),"DUTY B IS NULL"); 
+            }
             duty_cycle_b = (duty->data) * 100;
             pwm_counter_b++;
             if (pwm_counter_b >= 100) 
             {
                 pwm_counter_b = 0;
             }
-            safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);   
+            safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);
+            RCLCPP_WARN(this->get_logger(),"MOTOR_B_EN PWM IS ACTIVE");   
         }
         else
         {
-            safe_gpio_write(Motor_B_EN, 0); //disable pwm   
+            safe_gpio_write(Motor_B_EN, 0); //disable pwm 
+            RCLCPP_WARN(this->get_logger(),"PWM DISABLED");  
         }
     }
 
     void motor_A()
-    {
-        safe_gpio_write(Motor_A_Pin1, 1);
-        safe_gpio_write(Motor_A_Pin2, 0);
+    {   
+        try
+        {
+            safe_gpio_write(Motor_A_Pin1, 1);
+            safe_gpio_write(Motor_A_Pin2, 0);
+        }
+        catch(const std::exception& e)
+        {
+            RCLCPP_ERROR(this->get_logger(), "FAILED TO WRITE TO MOTOR A PINS");
+        }
+        
+       
     }
 
     void motor_B()
     {
-        safe_gpio_write(Motor_B_Pin1, 1);
-        safe_gpio_write(Motor_B_Pin2, 0);
+        try
+        {
+            safe_gpio_write(Motor_B_Pin1, 1);
+            safe_gpio_write(Motor_B_Pin2, 0);
+        }
+        catch(const std::exception& e)
+        {
+            RCLCPP_ERROR(this->get_logger(), "FAILED TO WRITE TO MOTOR B PINS");   
+        }
+        
     }
 
     void motor_callback()
     {
-        if(!(right_duty_queue_.empty() &&  left_duty_queue_.empty()))
+        if(!(right_duty_queue_.empty() ||  left_duty_queue_.empty()))
         {
             motor_A();
             motor_B();
         }
         else
-        {
+        {   
+            RCLCPP_ERROR(this->get_logger(),"MOTOR STOP FUNCTION IS ACTIVE");
             motorStop();
         }
     }
