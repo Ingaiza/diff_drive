@@ -21,7 +21,7 @@ const int Motor_B_Pin2 = 18;
 class motionnode : public rclcpp::Node 
 {
 public:
-    motionnode() : Node("diff_motion") 
+    motionnode() : Node("diff_motion")
     {
         motionsub_callbackgroup_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
         twist2vel_callbackgroup_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -291,17 +291,21 @@ private:
 
     void pwm_a_callback()
     {
+        example_interfaces::msg::Float64::SharedPtr duty;
         if(!right_duty_queue_.empty())
         {
             {
                 std::lock_guard<std::mutex> lock(right_duty_queue_mutex_);
-                duty_a = right_duty_queue_.front()->data;
+                duty = right_duty_queue_.front();
                 right_duty_queue_.pop();
 
-            }
+            }          
         }
-
-        duty_cycle_a = (duty_a) * 100;
+        if(duty)
+        {
+            duty_a = duty->data;
+            duty_cycle_a = (duty_a) * 100;
+        }
         pwm_counter_a++;
         if (pwm_counter_a >= 100) 
         {
@@ -317,17 +321,22 @@ private:
     }
 
     void pwm_b_callback()
-    {
+    {   
+        example_interfaces::msg::Float64::SharedPtr duty;
         if(!left_duty_queue_.empty())
         {
             {
                 std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);        
-                duty_b = left_duty_queue_.front()->data;
+                duty = left_duty_queue_.front();
                 left_duty_queue_.pop();
                 
             }
         }
-        duty_cycle_b = (duty_b) * 100;
+        if(duty)
+        {
+            duty_b = duty->data;
+            duty_cycle_b = duty_b * 100;
+        }
         pwm_counter_b++;
         if (pwm_counter_b >= 100) 
         {
@@ -410,8 +419,8 @@ private:
     std::mutex motionqueue_mutex_;
     std::mutex right_duty_queue_mutex_;
     std::mutex left_duty_queue_mutex_;
-    example_interfaces::msg::Float64::SharedPtr duty_a;
-    example_interfaces::msg::Float64::SharedPtr duty_b;
+    double duty_a;
+    double duty_b;
     double wheel_radius = 0.0225; // radius of the wheels
     double wheel_offset = 0.105; // distance between the center of the left and right wheel
     double right_wheel_angular_vel; // right wheel angular vel calculated from cmd_vel command
@@ -422,8 +431,8 @@ private:
     double angular_vel_gain;
     int h; //gpio handle
     std::vector<int> available_pins;
-    int duty_cycle_a;
-    int duty_cycle_b;
+    int duty_cycle_a = 0;
+    int duty_cycle_b = 0;
     int pwm_counter_a;
     int pwm_counter_b;   
 
