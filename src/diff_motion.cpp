@@ -301,18 +301,21 @@ private:
 
             }          
         }
-        if(duty)
-        {
-            duty_a = duty->data;
-            duty_cycle_a = (duty_a) * 100;
-        }
+
         pwm_counter_a++;
         if (pwm_counter_a >= 100) 
         {
             pwm_counter_a = 0;
         }
 
-        safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);          
+        if(duty)
+        {
+            duty_a = duty->data;
+            duty_cycle_a = (duty_a) * 100;
+            safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);          
+        }
+
+        //safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);          
         RCLCPP_WARN(this->get_logger(),"MOTOR_A_EN PWM IS ACTIVE");
 
         //safe_gpio_write(Motor_A_EN, 0); //disable pwm
@@ -332,18 +335,21 @@ private:
                 
             }
         }
-        if(duty)
-        {
-            duty_b = duty->data;
-            duty_cycle_b = duty_b * 100;
-        }
-        pwm_counter_b++;
+
+         pwm_counter_b++;
         if (pwm_counter_b >= 100) 
         {
             pwm_counter_b = 0;
         }
+
+        if(duty)
+        {
+            duty_b = duty->data;
+            duty_cycle_b = duty_b * 100;
+            safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);         
+        }
         
-        safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);         
+        //safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);         
         RCLCPP_WARN(this->get_logger(),"MOTOR_B_EN PWM IS ACTIVE");   
     
         //safe_gpio_write(Motor_B_EN, 0); //disable pwm 
