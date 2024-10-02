@@ -295,13 +295,13 @@ private:
         {
             {
                 std::lock_guard<std::mutex> lock(right_duty_queue_mutex_);
-                duty_a = right_duty_queue_.front();
+                duty_a = right_duty_queue_.front()->data;
                 right_duty_queue_.pop();
 
             }
         }
 
-        duty_cycle_a = (duty_a->data) * 100;
+        duty_cycle_a = (duty_a) * 100;
         pwm_counter_a++;
         if (pwm_counter_a >= 100) 
         {
@@ -322,12 +322,12 @@ private:
         {
             {
                 std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);        
-                duty_b = left_duty_queue_.front();
+                duty_b = left_duty_queue_.front()->data;
                 left_duty_queue_.pop();
                 
             }
         }
-        duty_cycle_b = (duty_b->data) * 100;
+        duty_cycle_b = (duty_b) * 100;
         pwm_counter_b++;
         if (pwm_counter_b >= 100) 
         {
