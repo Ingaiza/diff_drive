@@ -7,7 +7,7 @@
 
 
 #ifndef M_PI
-#define M_PI = 3.14159265358979323846;
+#define M_PI 3.14159265358979323846;
 #endif
 
 // Motor pin definitions
@@ -111,7 +111,7 @@ private:
 
     void motion_callback(const geometry_msgs::msg::Twist::SharedPtr msg)
     {   
-        RCLCPP_WARN(this->get_logger(),"MOTION CALLBACK IS ACTIVE");
+        // RCLCPP_WARN(this->get_logger(),"MOTION CALLBACK IS ACTIVE");
 
         {
             std::lock_guard<std::mutex> lock(motionqueue_mutex_);
@@ -189,7 +189,7 @@ private:
         {
             std::lock_guard<std::mutex> lock(right_duty_queue_mutex_);
             right_duty_queue_.push(msg);
-            RCLCPP_WARN(this->get_logger(),"PUSHED RIGHT DUTY MSG TO QUEUE");
+            // RCLCPP_WARN(this->get_logger(),"PUSHED RIGHT DUTY MSG TO QUEUE");
         
         }
         
@@ -201,7 +201,7 @@ private:
         {
             std::lock_guard<std::mutex> lock(left_duty_queue_mutex_);
             left_duty_queue_.push(msg);
-            RCLCPP_WARN(this->get_logger(),"PUSHED LEFT DUTY MSG TO QUEUE");
+            // RCLCPP_WARN(this->get_logger(),"PUSHED LEFT DUTY MSG TO QUEUE");
         
         }   
     
@@ -315,7 +315,7 @@ private:
         }
 
         safe_gpio_write(Motor_A_EN, pwm_counter_a < duty_cycle_a ? 1 : 0);          
-        RCLCPP_WARN(this->get_logger(),"MOTOR_A_EN PWM IS ACTIVE");
+        // RCLCPP_WARN(this->get_logger(),"MOTOR_A_EN PWM IS ACTIVE");
 
         //safe_gpio_write(Motor_A_EN, 0); //disable pwm
         // RCLCPP_WARN(this->get_logger(),"RIGHT QUEUE IS EMPTY"); 
@@ -348,7 +348,7 @@ private:
         }
         
         safe_gpio_write(Motor_B_EN, pwm_counter_b < duty_cycle_b ? 1 : 0);         
-        RCLCPP_WARN(this->get_logger(),"MOTOR_B_EN PWM IS ACTIVE");   
+        // RCLCPP_WARN(this->get_logger(),"MOTOR_B_EN PWM IS ACTIVE");   
     
         //safe_gpio_write(Motor_B_EN, 0); //disable pwm 
         // RCLCPP_WARN(this->get_logger(),"LEFT QUEUE IS EMPTY");  
@@ -361,7 +361,7 @@ private:
         {
             safe_gpio_write(Motor_A_Pin1, 0);
             safe_gpio_write(Motor_A_Pin2, 1);
-            RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
+            // RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
         }
         catch(const std::exception& e)
         {
@@ -377,7 +377,7 @@ private:
         {
             safe_gpio_write(Motor_B_Pin1, 0);
             safe_gpio_write(Motor_B_Pin2, 1);
-            RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
+            // RCLCPP_INFO(this->get_logger(),"MOTOR_B IN1 & IN2  PINS ACTIVE");
         }
         catch(const std::exception& e)
         {
