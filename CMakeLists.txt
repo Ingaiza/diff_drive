@@ -48,7 +48,7 @@ endif()
 
 # Add diff_motion node
 add_executable(diff_motion src/diff_motion.cpp)
-ament_target_dependencies(diff_motion rclcpp example_interfaces geometry_msgs)
+ament_target_dependencies(diff_motion rclcpp example_interfaces )
 target_link_libraries(diff_motion ${LGPIO_LIBRARY})
 
 # Add MotionTest node
@@ -61,11 +61,16 @@ add_executable(gpio_free_node src/gpio_free.cpp)
 ament_target_dependencies(gpio_free_node rclcpp)
 target_link_libraries(gpio_free_node ${LGPIO_LIBRARY})
 
+# Add diff_calc node
+add_executable(diff_calc src/diff_calc.cpp)
+ament_target_dependencies(diff_calc rclcpp example_interfaces geometry_msgs)
+
 
 install(TARGETS
   diff_motion
   motion_test
   gpio_free_node
+  diff_calc
   DESTINATION lib/${PROJECT_NAME})
 
 ament_package()
