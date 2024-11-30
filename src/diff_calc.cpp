@@ -1,6 +1,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
 #include "example_interfaces/msg/float64.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
 #include <cmath>
 #include <queue>
 
@@ -21,7 +22,7 @@ const int Motor_B_Pin2 = 18;
 class motionnode : public rclcpp::Node 
 {
 public:
-    motionnode() : Node("diff_motion")
+    motionnode() : Node("diff_calc")
     {
         motionsub_callbackgroup_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
         twist2vel_callbackgroup_ = this->create_callback_group(rclcpp::CallbackGroupType::MutuallyExclusive);
@@ -47,9 +48,14 @@ public:
             std::bind(&motionnode::twist_to_vel_callback,this),
             twist2vel_callbackgroup_);
 
-        right_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("right_duty", 100);
-        left_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("left_duty", 100);
-        
+        right_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("right_duty", 1); //changed queue size from 100 to 1
+        left_duty_publisher_ = this->create_publisher<example_interfaces::msg::Float64>("left_duty", 1); //changed queue size from 100 to 1
+
+        joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
+
+        joint_names = {"left_wheel_vel_joint" , "right_wheel_vel_joint"};
+
+
         RCLCPP_INFO(this->get_logger(), "Motion Subscription is Active");
 
     }
@@ -89,6 +95,14 @@ private:
                 //Find angular velocities for each wheel
                 right_wheel_angular_vel = this->right_diff_calculator(msg) * angular_vel_gain;
                 left_wheel_angular_vel = this->left_diff_calculator(msg) * angular_vel_gain;
+
+                auto wheel_vel = sensor_msgs::msg::JointState();
+                wheel_velocity = {left_wheel_angular_vel , right_wheel_angular_vel};
+                wheel_vel.header.stamp = this->get_clock()->now();
+                wheel_vel.name = joint_names;
+                wheel_vel.velocity = wheel_velocity;
+
+                joint_state_pub_->publish(wheel_vel);
 
                 //RCLCPP_INFO(this->get_logger(),"Right Wheel Angular Velocity: %f, Left Wheel Angular Velocity: %f", right_wheel_angular_vel,left_wheel_angular_vel);
                 
@@ -170,12 +184,15 @@ private:
 
     rclcpp::Publisher<example_interfaces::msg::Float64>::SharedPtr right_duty_publisher_;
     rclcpp::Publisher<example_interfaces::msg::Float64>::SharedPtr left_duty_publisher_;
+    rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr motion_subscription_;  
     rclcpp::TimerBase::SharedPtr twist_to_vel_;
     rclcpp::CallbackGroup::SharedPtr motionsub_callbackgroup_;
     rclcpp::CallbackGroup::SharedPtr twist2vel_callbackgroup_;
     std::queue<geometry_msgs::msg::Twist::SharedPtr> motion_queue_;
     std::mutex motionqueue_mutex_;
+    std::vector<std::string> joint_names;
+    std::vector<double> wheel_velocity;
     double wheel_radius = 0.0225; // radius of the wheels
     double wheel_offset = 0.105; // distance between the center of the left and right wheel
     double right_wheel_angular_vel; // right wheel angular vel calculated from cmd_vel command

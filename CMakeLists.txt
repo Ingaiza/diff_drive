@@ -10,6 +10,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(example_interfaces REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 # Find lgpio library
 find_path(LGPIO_INCLUDE_DIR lgpio.h
@@ -63,7 +64,7 @@ target_link_libraries(gpio_free_node ${LGPIO_LIBRARY})
 
 # Add diff_calc node
 add_executable(diff_calc src/diff_calc.cpp)
-ament_target_dependencies(diff_calc rclcpp example_interfaces geometry_msgs)
+ament_target_dependencies(diff_calc rclcpp example_interfaces geometry_msgs sensor_msgs)
 
 
 install(TARGETS
