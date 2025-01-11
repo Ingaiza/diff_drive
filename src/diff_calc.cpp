@@ -54,6 +54,7 @@ public:
         joint_state_pub_ = this->create_publisher<sensor_msgs::msg::JointState>("joint_states", 10);
 
         joint_names = {"left_wheel_vel_joint" , "right_wheel_vel_joint"};
+        wheel_position = {0.0 , 0.0}; 
 
 
         RCLCPP_INFO(this->get_logger(), "Motion Subscription is Active");
@@ -101,6 +102,7 @@ private:
                 wheel_vel.header.stamp = this->get_clock()->now();
                 wheel_vel.name = joint_names;
                 wheel_vel.velocity = wheel_velocity;
+                wheel_vel.position = wheel_position;
 
                 joint_state_pub_->publish(wheel_vel);
 
@@ -193,6 +195,7 @@ private:
     std::mutex motionqueue_mutex_;
     std::vector<std::string> joint_names;
     std::vector<double> wheel_velocity;
+    std::vector<double> wheel_position;
     double wheel_radius = 0.0225; // radius of the wheels
     double wheel_offset = 0.105; // distance between the center of the left and right wheel
     double right_wheel_angular_vel; // right wheel angular vel calculated from cmd_vel command
